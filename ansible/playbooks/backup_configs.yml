@@ -46,6 +46,8 @@
           {{ backup_dir }}/{{ inventory_hostname }}_{{ backup_timestamp }}.cfg
         mode: '0644'
       delegate_to: localhost
-      when: "'switches' in group_names and switch_config is defined"
+      when: >-
+        'switches' in group_names and
+        switch_config.stdout is defined
       tags:
         - backup

@@ -74,9 +74,11 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install ansible-lint
-        run: pip install ansible-lint
+      - name: Install ansible-lint and collections
+        run: |
+          pip install ansible-lint
+          ansible-galaxy collection install cisco.ios community.network \
+            community.general ansible.netcommon ansible.posix
 
       - name: Run ansible-lint
         run: ansible-lint ansible/
-        continue-on-error: true

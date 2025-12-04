@@ -1,6 +1,7 @@
 ---
 # Playbook: Configure Raspberry Pi
 # Description: Basic configuration and hardening for Raspberry Pi
+# WARNING: SSH hardening tasks require SSH keys to be deployed first
 
 - name: Configure Raspberry Pi
   hosts: servers
@@ -20,6 +21,8 @@
       - 192.168.1.0/24
     timezone: "Europe/Madrid"
     hostname: "raspberry-pi"
+    # Set to true only after SSH keys are properly deployed
+    disable_password_auth: false
 
   tasks:
     - name: Update apt cache
@@ -81,16 +84,6 @@
       tags:
         - firewall
 
-    - name: Disable password authentication for SSH
-      ansible.builtin.lineinfile:
-        path: /etc/ssh/sshd_config
-        regexp: '^#?PasswordAuthentication'
-        line: 'PasswordAuthentication no'
-        state: present
-      notify: Restart SSH
-      tags:
-        - ssh
-
     - name: Ensure SSH key authentication is enabled
       ansible.builtin.lineinfile:
         path: /etc/ssh/sshd_config
@@ -100,6 +93,18 @@
       notify: Restart SSH
       tags:
         - ssh
+
+    - name: Disable password authentication for SSH
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?PasswordAuthentication'
+        line: 'PasswordAuthentication no'
+        state: present
+      notify: Restart SSH
+      when: disable_password_auth | bool
+      tags:
+        - ssh
+        - ssh-hardening
 
   handlers:
     - name: Restart SSH
