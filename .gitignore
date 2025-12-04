@@ -1,3 +1,6 @@
+# Ansible cache and temporary files
+.ansible/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
