@@ -1,0 +1,40 @@
+---
+# Playbook: Configure Small Business Switch
+# Description: Basic configuration for Cisco Small Business switches (SG series)
+
+- name: Configure Small Business Switch
+  hosts: switches
+  gather_facts: false
+
+  vars:
+    management_vlan: 1
+    vlans:
+      - id: 10
+        name: "DATA"
+      - id: 20
+        name: "VOICE"
+      - id: 30
+        name: "MANAGEMENT"
+    ntp_server: "pool.ntp.org"
+
+  tasks:
+    - name: Configure VLANs
+      community.network.sg300_vlan:
+        vlan_id: "{{ item.id }}"
+        name: "{{ item.name }}"
+        state: present
+      loop: "{{ vlans }}"
+      tags:
+        - vlans
+
+    - name: Configure hostname via CLI
+      ansible.netcommon.cli_command:
+        command: "hostname {{ inventory_hostname }}"
+      tags:
+        - hostname
+
+    - name: Save configuration
+      ansible.netcommon.cli_command:
+        command: "copy running-config startup-config"
+      tags:
+        - save

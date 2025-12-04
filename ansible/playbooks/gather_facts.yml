@@ -1,0 +1,39 @@
+---
+# Playbook: Gather Network Facts
+# Description: Collect facts from all network devices for documentation
+
+- name: Gather Network Facts
+  hosts: all
+  gather_facts: true
+
+  tasks:
+    - name: Gather Cisco IOS facts
+      cisco.ios.ios_facts:
+        gather_subset:
+          - all
+      when: >-
+        ansible_network_os is defined and
+        ansible_network_os == 'cisco.ios.ios'
+      register: ios_facts
+      tags:
+        - facts
+
+    - name: Display IOS facts
+      ansible.builtin.debug:
+        var: ios_facts
+      when: ios_facts is defined
+      tags:
+        - facts
+
+    - name: Display Linux system facts
+      ansible.builtin.debug:
+        msg: |
+          Hostname: {{ ansible_hostname }}
+          OS: {{ ansible_distribution }} {{ ansible_distribution_version }}
+          Kernel: {{ ansible_kernel }}
+          Architecture: {{ ansible_architecture }}
+          Memory: {{ ansible_memtotal_mb }} MB
+          CPUs: {{ ansible_processor_vcpus }}
+      when: ansible_distribution is defined
+      tags:
+        - facts

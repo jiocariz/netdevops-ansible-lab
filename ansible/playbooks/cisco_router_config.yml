@@ -1,0 +1,64 @@
+---
+# Playbook: Configure Cisco Router
+# Description: Basic configuration for Cisco IOS router
+
+- name: Configure Cisco Router
+  hosts: routers
+  gather_facts: false
+
+  vars:
+    banner_motd: "Authorized access only. All activities are monitored."
+    ntp_server: "pool.ntp.org"
+    dns_servers:
+      - 8.8.8.8
+      - 8.8.4.4
+    log_server: 192.168.1.100
+    timezone: "Europe/Madrid"
+
+  tasks:
+    - name: Configure hostname
+      cisco.ios.ios_hostname:
+        config:
+          hostname: "{{ inventory_hostname }}"
+        state: merged
+      tags:
+        - hostname
+
+    - name: Configure banner
+      cisco.ios.ios_banner:
+        banner: motd
+        text: "{{ banner_motd }}"
+        state: present
+      tags:
+        - banner
+
+    - name: Configure DNS servers
+      cisco.ios.ios_system:
+        name_servers: "{{ dns_servers }}"
+        state: present
+      tags:
+        - dns
+
+    - name: Configure NTP server
+      cisco.ios.ios_ntp_global:
+        config:
+          servers:
+            - server: "{{ ntp_server }}"
+        state: merged
+      tags:
+        - ntp
+
+    - name: Configure logging
+      cisco.ios.ios_logging_global:
+        config:
+          hosts:
+            - hostname: "{{ log_server }}"
+        state: merged
+      tags:
+        - logging
+
+    - name: Save running configuration
+      cisco.ios.ios_config:
+        save_when: modified
+      tags:
+        - save
