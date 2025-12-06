@@ -1,0 +1,40 @@
+---
+- name: Gestión de Usuarios Locales
+  hosts: cisco # Atacamos a Routers y Switches a la vez con la misma Collection (cisco.ios) a ver qué pasa
+  gather_facts: no # Con yes recolectaríamos información del dispositivo (xej versión) para usarlo: si version > 12 actualiza tal cosa; aquí no hace falta 
+  connection: network_cli # Todas las conexiones van a ser CLI
+
+  vars:
+    usuario_nuevo: "nuevo08" # Nombre del nuevo usuario, tú pon el de tu grupo 
+    password_nuevo: "" # Esto es una BABARIDAD dejarlo escrito; podrían DESPEDIRTE!! (se hace pasando el hash o con Ansible Vault, que te suene)
+
+  tasks: #Aquí van las tareas que voy a ejecutar
+    - name: Asegurar que el usuario existe en el equipo # Esta es la primera tarea
+      cisco.ios.ios_user: # Dentro de la Collection cisco.ios, uso el módulo ios_user para crear usuarios: lo mejor es mirar la doc oficial
+        name: "{{ usuario_nuevo }}"
+        privilege: 15
+        password_type: secret # podría ser password
+        configured_password: "{{ password_nuevo }}" #
+        state: present # Es para indicar que debería estar presente (si no lo está, créalo); con absent, es al revés (si está, lo borras)
+        update_password: on_create # Solo se guarda la contraseña si el usuario se crea (si ya existe no se toca la que haya)
+      register: resultado_usuario # La ejecución de la tarea devuevle este objeto json con el resultado: es bien, es mal, hay cambios, ha tardado x ...
+      notify: Guardar config IOS # Notificará a un handler (ver al final), para que haga cosas si hubo cambios (guardar a startup-config)
+
+    - name: Ver contenido del objeto register
+      debug: # Para pintar en pantalla
+        var: resultado_usuario # Ver todo el contenido del objeto json
+
+    - name: Informe simple # Para informar por pantalla de lo que pasado
+      debug: # a pantalla
+        msg:
+          - "Usuario: {{ usuario_nuevo }}"
+          - "Cambio realizado: {{ resultado_usuario.changed }}" # Ha habido cambios o no ... 
+
+  #----------------------------------------------------------
+  # HANDLERS (solo se llaman desde las tareas si hubo cambios
+  #----------------------------------------------------------
+
+  handlers:
+    - name: Guardar config IOS
+      cisco.ios.ios_config: # Aquí usamos el módulo ios_config de la Collection cisco.ios, que sirve para tareas relacionadas con la configuración
+        save_when: always

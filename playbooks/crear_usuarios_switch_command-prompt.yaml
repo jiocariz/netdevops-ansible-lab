@@ -1,0 +1,77 @@
+---
+- name: Gestión de Usuarios Locales
+  hosts: cisco # Atacamos a Routers y Switches a la vez con la misma Collection (cisco.ios) a ver qué pasa
+  gather_facts: no # Con yes recolectaríamos información del dispositivo (xej versión) para usarlo: si version > 12 actualiza tal cosa; aquí no hace falta 
+  connection: network_cli # Todas las conexiones van a ser CLI
+
+  # --- SECCIÓN INTERACTIVA ---
+  vars_prompt:
+    # 1. Credencial para conectar AHORA (SSH)
+    - name: "ansible_password"
+      prompt: "1. Introduce la contraseña de ADMIN (jiuser) para conectar"
+      private: yes
+
+    # 2. Credencial para el NUEVO usuario (Payload)
+    - name: "password_nuevo"
+      prompt: "2. Define la contraseña para el usuario nuevo de los equipos"
+      private: yes
+      confirm: yes  # ¡Importante! Obliga a escribirla dos veces
+
+  vars:
+    usuario_nuevo: "nuevo88" # Nombre del nuevo usuario, tú pon el de tu grupo 
+
+  tasks: #Aquí van las tareas que voy a ejecutar
+    #-------------------------------------------
+    # SOLO PARA EL ROUTER CISCO.IOS native
+    #-------------------------------------------
+    - name: Asegurar que el usuario existe en el equipo # Esta es la primera tarea
+      cisco.ios.ios_user: # Dentro de la Collection cisco.ios, uso el módulo ios_user para crear usuarios: lo mejor es mirar la doc oficial
+        name: "{{ usuario_nuevo }}"
+        privilege: 15
+        password_type: secret # podría ser password
+        configured_password: "{{ password_nuevo }}" #
+        state: present # Es para indicar que debería estar presente (si no lo está, créalo); con absent, es al revés (si está, lo borras)
+        update_password: on_create # Solo se guarda la contraseña si el usuario se crea (si ya existe no se toca la que haya)
+      when: "'routers' in group_names" # Solo para los children de hosts que sean Routers
+      register: router_change # La ejecución de la tarea devuevle este objeto json con el resultado: es bien, es mal, hay cambios, ha tardado x ...
+      notify: Guardar config IOS # Notificará a un handler (ver al final), para que haga cosas si hubo cambios (guardar a startup-config)
+
+    #------------------------------------------------
+    #SOLO para el SWITCH Small Bussiness por comandos
+    #------------------------------------------------
+    # Pedimos la lista completa de cuentas de usuario con un comando que sabemos que funciona
+    - name: Comprobar si el usuario ya existe en el switch
+      ansible.netcommon.cli_command: # Uso la Collection por defecto de ansible, comando a comando
+        command: show users accounts
+      when: "'switches' in group_names"
+      register: check_usuario_switch
+      changed_when: false # Leer nunca es un cambio
+
+    # Estrategia: Enviar los comandos a pelo. Es lo más fiable para SMB.
+    - name: Configurar usuario en Switch SMB (Comandos Raw)
+      ansible.netcommon.cli_command: # Uso la collection por defecto de Ansible, comando a comando 
+        command: "{{ item }}" # Monto un bucle
+      # Iteramos los comandos uno a uno. Ansible los escribirá y esperará el prompt.
+      loop:
+        - configure terminal
+        - username {{ usuario_nuevo }} password {{ password_nuevo }} privilege 15
+        - exit
+      when: "('switches' in group_names) and (usuario_nuevo not in check_usuario_switch.stdout)"
+      changed_when: true
+      register: switch_change
+      notify: Guardar config SMB
+
+
+  #----------------------------------------------------------
+  # HANDLERS (solo se llaman desde las tareas si hubo cambios
+  #----------------------------------------------------------
+
+  handlers:
+    - name: Guardar config IOS
+      cisco.ios.ios_config: # Aquí usamos el módulo ios_config de la Collection cisco.ios, que sirve para tareas relacionadas con la configuración
+        save_when: always
+
+    - name: Guardar config SMB
+      ansible.netcommon.cli_command:
+        command: write memory
+

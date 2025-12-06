@@ -1,0 +1,30 @@
+- name: Gestión de Usuarios Locales
+  hosts: cisco # definido en inventario.ini [cisco:children], que son routers y switches. Atacamos los dos a la vez a ver qué pasa
+  gather_facts: no # Con yes recolectaría información del equipo (xej versión) para luego poder usarlo en condiciones tipo
+                   # (si la versión es superior a 12, entonces haz tal cosa) Este playbook no lo necesita
+  connection: network_cli # La conexión será usando CLI
+
+  vars:
+    # Es el nuevo usuario que queremos crear si no existe y simplemente dejarlo tal cual si ya existe (asegurarnos de que existe siempre)
+    usuario_nuevo: "nuevo08"
+    password_nuevo: "Cisco12345-"
+
+  tasks:
+    - name: Asegurar que el usuario existe en el equipo
+      cisco.ios.ios_user:
+        name: "{{ usuario_nuevo }}"
+        privilege: 15
+        password_type: "secret" # Puede ser password o secret
+        configured_password: "{{ password_nuevo }}"
+        state: present # si pusiéramos 'absent' lo borarría. 'present' se asegura que existe
+      register: resultado_usuario # un objeto json que recoge el resultado de ejecución de esta tarea
+
+    - name: Ver el contenido del objeto register
+      debug:
+        var: resultado_usuario # Mostrará todo el contenido del objeto
+
+    - name: Informe simple
+      debug:
+        msg:
+          - "Usuario: {{ usuario_nuevo }}"
+          - "Cambio realizado: {{ resultado_usuario.changed }}"
